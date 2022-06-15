@@ -91,6 +91,15 @@ is_erlkaf_config(queue_buffering_overflow_strategy = K, V) ->
         _ ->
             throw({error, {options, {K, V}}})
     end;
+is_erlkaf_config(on_demand = K, V) ->
+    case V of
+        true ->
+            true;
+        false ->
+            true;
+        _ ->
+            throw({error, {options, {K, V}}})
+    end;
 is_erlkaf_config(_, _) ->
     false.
 

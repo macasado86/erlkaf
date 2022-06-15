@@ -23,7 +23,8 @@
     topics_settings = #{},
     active_topics_map = #{},
     stats_cb,
-    stats = []
+    stats = [],
+    on_demand = false
 }).
 
 start_link(ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, EkTopicConfig, RdkTopicConfig) ->
@@ -42,7 +43,8 @@ init([ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, _EkTopicConfig
                 client_id = ClientId,
                 client_ref = ClientRef,
                 topics_settings = maps:from_list(Topics),
-                stats_cb = erlkaf_utils:lookup(stats_callback, EkClientConfig)
+                stats_cb = erlkaf_utils:lookup(stats_callback, EkClientConfig),
+                on_demand = erlkaf_utils:lookup(on_demand, EkClientConfig, false)
             }};
         Error ->
             {stop, Error}
@@ -50,6 +52,9 @@ init([ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, _EkTopicConfig
 
 handle_call(get_stats, _From, #state{stats = Stats} = State) ->
     {reply, {ok, Stats}, State};
+
+handle_call(get_pids, _From, #state{active_topics_map = ActiveTopicsMap} = State) ->
+    {reply, ActiveTopicsMap, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -71,13 +76,19 @@ handle_info({stats, Stats0}, #state{stats_cb = StatsCb, client_id = ClientId} = 
 handle_info({assign_partitions, Partitions}, #state{
     client_ref = ClientRef,
     topics_settings = TopicsSettingsMap,
-    active_topics_map = ActiveTopicsMap} = State) ->
+    active_topics_map = ActiveTopicsMap,
+    on_demand = OnDemand} = State) ->
 
     ?LOG_INFO("assign partitions: ~p", [Partitions]),
 
     PartFun = fun({TopicName, Partition, Offset, QueueRef}, Tmap) ->
         TopicSettings = maps:get(TopicName, TopicsSettingsMap),
-        {ok, Pid} = erlkaf_consumer:start_link(ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings),
+        {ok, Pid} = case OnDemand of
+            false ->
+                erlkaf_consumer:start_link(ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings);
+            true ->
+                erlkaf_demand_consumer:start_link(ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings)
+        end,    
         maps:put({TopicName, Partition}, Pid, Tmap)
     end,
 

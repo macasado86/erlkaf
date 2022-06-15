@@ -113,7 +113,13 @@ internal_start_consumer(ClientId, GroupId, Topics, ClientConfig, DefaultTopicsCo
                             case erlkaf_config:convert_topic_config(DefaultTopicsConfig) of
                                 {ok, EkTopicConfig, RdkTopicConfig} ->
                                     Args = [ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, EkTopicConfig, RdkTopicConfig],
-                                    erlkaf_sup:add_client(ClientId, erlkaf_consumer_group, Args);
+                                    case erlkaf_sup:add_client(ClientId, erlkaf_consumer_group, Args) of 
+                                        {ok, Pid} = Result -> 
+                                            register(ClientId, Pid),
+                                            Result;
+                                        Error ->
+                                            Error
+                                    end;
                                 Error ->
                                     Error
                             end;

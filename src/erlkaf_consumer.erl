@@ -5,6 +5,7 @@
 
 -define(DEFAULT_POLL_IDLE_MS, 1000).
 -define(DEFAULT_BATCH_SIZE, 100).
+-define(DEFAULT_POLL_INTERVAL_MS, 0).
 
 -behaviour(gen_server).
 
@@ -33,7 +34,8 @@
     poll_idle_ms,
     dispatch_mode,
     messages = [],
-    last_offset = -1
+    last_offset = -1,
+    poll_interval_ms
 }).
 
 start_link(ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings) ->
@@ -62,6 +64,7 @@ init([ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings]) ->
     CbArgs = erlkaf_utils:lookup(callback_args, TopicSettings, []),
     DispatchMode = erlkaf_utils:lookup(dispatch_mode, TopicSettings, one_by_one),
     PollIdleMs = erlkaf_utils:lookup(poll_idle_ms, TopicSettings, ?DEFAULT_POLL_IDLE_MS),
+    PollIntervalMs = erlkaf_utils:lookup(poll_interval_ms, TopicSettings, ?DEFAULT_POLL_INTERVAL_MS),
 
     case catch CbModule:init(TopicName, Partition, Offset, CbArgs) of
         {ok, CbState} ->
@@ -78,7 +81,8 @@ init([ClientRef, TopicName, Partition, Offset, QueueRef, TopicSettings]) ->
                 cb_state = CbState,
                 poll_batch_size = PollBatchSize,
                 poll_idle_ms = PollIdleMs,
-                dispatch_mode = DpMode
+                dispatch_mode = DpMode,
+                poll_interval_ms = PollIntervalMs
             }};
         Error ->
             ?LOG_ERROR("~p:init for topic: ~p failed with: ~p", [CbModule, TopicName, Error]),
@@ -114,11 +118,12 @@ handle_info(process_messages, #state{
     dispatch_mode = DispatchMode,
     client_ref = ClientRef,
     cb_module = CbModule,
-    cb_state = CbState} = State) ->
+    cb_state = CbState,
+    poll_interval_ms = PollIntervalMs} = State) ->
 
     case process_events(DispatchMode, Msgs, batch_offset(DispatchMode, State), ClientRef, CbModule, CbState) of
         {ok, NewCbState} ->
-            schedule_poll(0),
+            schedule_poll(PollIntervalMs),
             {noreply, State#state{messages = [], last_offset = -1, cb_state = NewCbState}};
         {stop, From, Tag} ->
             handle_stop(From, Tag, State),
