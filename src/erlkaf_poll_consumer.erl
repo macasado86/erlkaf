@@ -71,16 +71,16 @@ handle_call(poll, _From, #state{queue_ref = Queue, poll_batch_size = PollBatchSi
             throw({error, Error})
     end;
 
-handle_call(Request, _From, State) ->
-    ?LOG_ERROR("handle_call unexpected message: ~p", [Request]),
-    {reply, ok, State}.
-
-handle_cast({commit_offset, Offset}, #state{
+handle_call({commit_offset, Offset}, _From, #state{
         client_ref = ClientRef,
         topic_name = Topic,
         partition = Partition} = State) ->
-    erlkaf_nif:consumer_offset_store(ClientRef, Topic, Partition, Offset),
-    {noreply, State};
+    ok = erlkaf_nif:consumer_offset_store(ClientRef, Topic, Partition, Offset),
+    {reply, ok, State};
+
+handle_call(Request, _From, State) ->
+    ?LOG_ERROR("handle_call unexpected message: ~p", [Request]),
+    {reply, ok, State}.
 
 handle_cast(Request, State) ->
     ?LOG_ERROR("handle_cast unexpected message: ~p", [Request]),

@@ -67,7 +67,7 @@ poll(Pid, Timeout) ->
     erlkaf_utils:safe_call(Pid, {poll, Timeout}, infinity).
 
 commit_offsets(Pid, PartitionOffsets) ->
-    gen_server:cast(Pid, {commit_offsets, PartitionOffsets}).
+    erlkaf_utils:safe_call(Pid, {commit_offsets, PartitionOffsets}).
 
 handle_call(get_stats, _From, #state{stats = Stats} = State) ->
     {reply, {ok, Stats}, State};
@@ -90,20 +90,20 @@ handle_call({poll, Timeout}, _From, #state{active_topics_map = ActiveTopicsMap} 
 
     {reply, {ok, Events}, State};
 
-handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
-
-handle_cast({commit_offsets, PartitionOffsets}, #state{active_topics_map = ActiveTopicsMap} = State) ->
+handle_call({commit_offsets, PartitionOffsets}, _From, #state{active_topics_map = ActiveTopicsMap} = State) ->
     erlkaf_utils:parralel_exec(fun({Topic, Partition, Offset}) -> 
         case maps:find({Topic, Partition}, ActiveTopicsMap) of
             {ok, {ConsumerPid, _Ref}} ->
-                erlkaf_utils:safe_cast(ConsumerPid, {commit_offset, Offset});
+                erlkaf_utils:safe_call(ConsumerPid, {commit_offset, Offset});
             error ->
                 ?LOG_ERROR("No process found for topic ~p and partition ~p", [Topic, Partition])
         end
     end, PartitionOffsets),
 
-    {noreply, State};
+    {reply, ok, State};
+
+handle_call(_Request, _From, State) ->
+    {reply, ok, State}.
 
 handle_cast(_Request, State) ->
     {noreply, State}.
