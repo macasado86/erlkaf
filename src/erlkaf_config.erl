@@ -208,6 +208,8 @@ to_librdkafka_config(enable_ssl_certificate_verification, V) ->
     {<<"enable.ssl.certificate.verification">>, erlkaf_utils:to_binary(V)};
 to_librdkafka_config(ssl_endpoint_identification_algorithm, V) ->
     {<<"ssl.endpoint.identification.algorithm">>, erlkaf_utils:to_binary(V)};
+to_librdkafka_config(ssl_providers, V) ->
+    {<<"ssl.providers">>, erlkaf_utils:to_binary(V)};
 to_librdkafka_config(sasl_mechanisms, V) ->
     {<<"sasl.mechanisms">>, erlkaf_utils:to_binary(V)};
 to_librdkafka_config(sasl_kerberos_service_name, V) ->

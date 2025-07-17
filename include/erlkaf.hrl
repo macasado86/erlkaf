@@ -96,6 +96,7 @@
     {ssl_keystore_password, binary()} |
     {enable_ssl_certificate_verification, boolean()} |
     {ssl_endpoint_identification_algorithm, binary()} |
+    {ssl_providers, binary()} |
     {sasl_mechanisms, binary()} |
     {sasl_kerberos_service_name, binary()} |
     {sasl_kerberos_principal, binary()} |
