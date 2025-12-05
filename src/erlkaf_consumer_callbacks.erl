@@ -17,8 +17,12 @@
 -callback oauthbearer_token_refresh_callback(binary()) ->
     ok.
 
+-callback revoke_partitions_callback(list()) ->
+    ok.
+
 -optional_callbacks([
     stats_callback/2,
     handle_failed_message/2,
-    oauthbearer_token_refresh_callback/1
+    oauthbearer_token_refresh_callback/1,
+    revoke_partitions_callback/1
 ]).

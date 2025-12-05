@@ -27,7 +27,8 @@
     consumer_module,
     stats_cb,
     stats = [],
-    oauthbearer_token_refresh_cb
+    oauthbearer_token_refresh_cb,
+    revoke_partitions_cb
 }).
 
 start_link(ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, EkTopicConfig, RdkTopicConfig) ->
@@ -49,7 +50,8 @@ init([ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, _EkTopicConfig
                 topics_settings = maps:from_list(Topics),
                 consumer_module = consumer_module(PollConsumer),
                 stats_cb = erlkaf_utils:lookup(stats_callback, EkClientConfig),
-                oauthbearer_token_refresh_cb = erlkaf_utils:lookup(oauthbearer_token_refresh_callback, EkClientConfig)
+                oauthbearer_token_refresh_cb = erlkaf_utils:lookup(oauthbearer_token_refresh_callback, EkClientConfig),
+                revoke_partitions_cb = erlkaf_utils:lookup(revoke_partitions_callback, EkClientConfig)
             }};
         Error ->
             {stop, Error}
@@ -155,9 +157,11 @@ handle_info({assign_partitions, Partitions}, #state{
 handle_info({revoke_partitions, Partitions}, #state{
     client_ref = ClientRef,
     active_topics_map = ActiveTopicsMap,
-    consumer_module = ConsumerModule} = State) ->
+    consumer_module = ConsumerModule,
+    revoke_partitions_cb = RevokePartitionsCb} = State) ->
 
     ?LOG_INFO("revoke partitions: ~p", [Partitions]),
+    call_revoke_partitions_cb(RevokePartitionsCb, Partitions),
     PidQueuePairs = get_pid_queue_pairs(ActiveTopicsMap, Partitions),
     ok = stop_consumers(ConsumerModule, PidQueuePairs),
     ?LOG_INFO("all existing consumers stopped for partitions: ~p", [Partitions]),
@@ -219,3 +223,9 @@ reduce(ReduceFun, [{Pid, MRef} | Tail], Acc) ->
             ?LOG_ERROR("polling process ~p exited: ~p", [Pid, Reason]),
             Acc
     end.
+
+call_revoke_partitions_cb(undefined, _Partitions) -> ok;
+call_revoke_partitions_cb(RevokePartitionsCb, Partitions) when is_function(RevokePartitionsCb) ->
+    RevokePartitionsCb(Partitions);
+% TODO Revisar bien esta última
+call_revoke_partitions_cb(C, Partitions) -> C:revoke_partitions_callback(Partitions).
