@@ -28,6 +28,7 @@
     stats_cb,
     stats = [],
     oauthbearer_token_refresh_cb,
+    assign_partitions_cb,
     revoke_partitions_cb
 }).
 
@@ -51,6 +52,7 @@ init([ClientId, GroupId, Topics, EkClientConfig, RdkClientConfig, _EkTopicConfig
                 consumer_module = consumer_module(PollConsumer),
                 stats_cb = erlkaf_utils:lookup(stats_callback, EkClientConfig),
                 oauthbearer_token_refresh_cb = erlkaf_utils:lookup(oauthbearer_token_refresh_callback, EkClientConfig),
+                assign_partitions_cb = erlkaf_utils:lookup(assign_partitions_callback, EkClientConfig),
                 revoke_partitions_cb = erlkaf_utils:lookup(revoke_partitions_callback, EkClientConfig)
             }};
         Error ->
@@ -142,7 +144,8 @@ handle_info({assign_partitions, Partitions}, #state{
     client_ref = ClientRef,
     topics_settings = TopicsSettingsMap,
     active_topics_map = ActiveTopicsMap,
-    consumer_module = ConsumerModule} = State) ->
+    consumer_module = ConsumerModule,
+    assign_partitions_cb = AssignPartitionsCb} = State) ->
 
     ?LOG_INFO("assign partitions: ~p", [Partitions]),
 
@@ -152,7 +155,9 @@ handle_info({assign_partitions, Partitions}, #state{
         maps:put({TopicName, Partition}, {Pid, QueueRef}, Tmap)
     end,
 
-    {noreply, State#state{active_topics_map = lists:foldl(PartFun, ActiveTopicsMap, Partitions)}};
+    NewActiveTopicsMap = lists:foldl(PartFun, ActiveTopicsMap, Partitions),
+    call_assign_partitions_cb(AssignPartitionsCb, Partitions),
+    {noreply, State#state{active_topics_map = NewActiveTopicsMap}};
 
 handle_info({revoke_partitions, Partitions}, #state{
     client_ref = ClientRef,
@@ -223,6 +228,12 @@ reduce(ReduceFun, [{Pid, MRef} | Tail], Acc) ->
             ?LOG_ERROR("polling process ~p exited: ~p", [Pid, Reason]),
             Acc
     end.
+
+call_assign_partitions_cb(undefined, _Partitions) -> ok;
+call_assign_partitions_cb(AssignPartitionsCb, Partitions) when is_function(AssignPartitionsCb) ->
+    AssignPartitionsCb(Partitions);
+% TODO Revisar bien esta última
+call_assign_partitions_cb(C, Partitions) -> C:assign_partitions_callback(Partitions).
 
 call_revoke_partitions_cb(undefined, _Partitions) -> ok;
 call_revoke_partitions_cb(RevokePartitionsCb, Partitions) when is_function(RevokePartitionsCb) ->

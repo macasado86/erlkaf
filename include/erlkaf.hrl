@@ -144,6 +144,7 @@
     {delivery_report_callback, any()} |
     {sticky_partitioning_linger_ms, non_neg_integer()} |
     {oauthbearer_token_refresh_callback, any()} |
+    {assign_partitions_callback, any()} |
     {revoke_partitions_callback, any()}.
 
 % records

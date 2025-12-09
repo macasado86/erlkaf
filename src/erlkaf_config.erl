@@ -82,6 +82,8 @@ is_erlkaf_config(stats_callback = K, V) ->
     check_callback(K, V, 2);
 is_erlkaf_config(oauthbearer_token_refresh_callback = K, V) ->
     check_callback(K, V, 1);
+is_erlkaf_config(assign_partitions_callback = K, V) ->
+    check_callback(K, V, 1);
 is_erlkaf_config(revoke_partitions_callback = K, V) ->
     check_callback(K, V, 1);
 is_erlkaf_config(local_queue_path = K, []) -> throw({error, {options, {K, []}}});
